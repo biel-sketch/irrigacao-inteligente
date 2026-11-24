@@ -431,7 +431,9 @@ function desenhar() {
     b.onclick = () => { ESTADO.selected = p.id; desenhar(); };
     beds.appendChild(b);
   }
-  $("headline").textContent = bombando.length
+  $("headline").textContent = (idade != null && !online)
+    ? `Sem dados novos desde ${hora(ESTADO.lastAt)}. Aguardando o ESP32 voltar a transmitir.`
+    : bombando.length
     ? (bombando.length > 1 ? `As bombas ${bombando.map(doDa).join(" e ")} estão regando agora.` : `A bomba ${doDa(bombando[0])} está regando agora.`)
     : urgente
       ? `${artigo(urgente.p.nome)} ${urgente.p.nome.toLowerCase()} vai precisar de água em ${duracao(urgente.s)}.`
