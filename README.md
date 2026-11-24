@@ -9,10 +9,11 @@ os acionamentos da bomba e a água gasta.
 
 | O quê | Link |
 |---|---|
-| Painel publicado (Cloudflare Pages) | https://irrigacao-inteligente.pages.dev |
+| Painel publicado (GitHub Pages) | https://biel-sketch.github.io/irrigacao-inteligente/site/ |
+| Painel publicado (espelho no Cloudflare Pages) | https://irrigacao-inteligente.pages.dev |
 | Simulação (Wokwi, ESP32) | https://wokwi.com/projects/481580944183992321 |
 | API de consulta (GET) | https://stfpruxggcextsaulvqi.supabase.co/functions/v1/leituras |
-| Vídeo de demonstração | _(adicionar o link do YouTube não listado)_ |
+| Vídeo de demonstração | https://drive.google.com/drive/folders/19oGDeRhC6w4ZixkovTD6pYzwoV_VzyIe?usp=sharing |
 
 ## Arquitetura (Opção A, com MQTT)
 
@@ -22,7 +23,7 @@ flowchart LR
   B -- "regra SQL + POST HTTPS<br/>x-ingest-key" --> C["Supabase Edge Function<br/>ingest (POST)"]
   C -- "valida e grava" --> D[("Postgres<br/>plants, readings")]
   D --> E["Supabase Edge Function<br/>leituras (GET)"]
-  E -- "HTTPS / JSON" --> F["Painel no Cloudflare Pages"]
+  E -- "HTTPS / JSON" --> F["Painel no GitHub Pages / Cloudflare Pages"]
 ```
 
 1. **ESP32 (Wokwi)** lê, a cada 2 s, a temperatura (DHT22, protocolo de 1 fio) e a luz (LDR, conversor analógico-digital de 12 bits)
