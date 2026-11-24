@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Irrigação inteligente com previsão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --surface: #F6F7F2;   /* folha clara, levemente verde */
+    --panel: #FFFFFF;
+    --ink: #1F2A22;       /* texto principal */
+    --muted: #5B6A5F;     /* texto secundário */
+    --line: #DCE2D7;      /* bordas e grade */
+    --soil: #8B6B4A;      /* terra úmida */
+    --soil-dry: #C9B79C;  /* terra seca */
+    --ideal: #DCEBCF;     /* faixa ideal */
+    --ideal-edge: #6E9A4E;
+    --water: #2D6FB3;     /* bomba / água */
+    --water-soft: #DCE8F5;
+    --warn: #9A5B00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface); color: var(--ink);
+    font: 400 16px/1.55 "Instrument Sans", system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", system-ui, sans-serif; margin: 0; }
+  a { color: var(--water); }
+  :focus-visible { outline: 3px solid var(--water); outline-offset: 2px; }
+
+  /* Cabeçalho */
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .brand { font: 700 18px "Bricolage Grotesque", sans-serif; }
+  .live { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #9AA69C; }
+  .dot.on { background: #3C8A3F; box-shadow: 0 0 0 4px #3C8A3F22; }
+
+  /* Frase principal: a previsão mais urgente */
+  .hero { margin: 36px 0 28px; max-width: 900px; }
+  .hero h1 { font-size: clamp(32px, 5vw, 56px); line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
+  .hero p { color: var(--muted); margin: 14px 0 0; max-width: 64ch; }
+
+  /* Canteiros: uma coluna de terra por plantação */
+  .beds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .bed {
+    text-align: left; font: inherit; color: inherit; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px; display: grid; grid-template-columns: 54px 1fr; gap: 14px;
+  }
+  .bed[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .column {
+    position: relative; height: 150px; border-radius: 8px; overflow: hidden;
+    background: repeating-linear-gradient(0deg, #EFEBE3 0 6px, #F4F1EB 6px 12px);
+    border: 1px solid #D8CFC1;
+  }
+  .column .band {
+    position: absolute; left: 0; right: 0; z-index: 2; background: #DCEBCF33;
+    border-top: 2px dashed #CFE6BC; border-bottom: 2px dashed #CFE6BC;
+  }
+  .column .fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, var(--soil) 0%, #6F5338 100%);
+    transition: height .8s ease;
+  }
+  .column .fill.dry { background: linear-gradient(180deg, var(--soil-dry), #A9946F); }
+  .column .rain {
+    position: absolute; inset: 0; background: repeating-linear-gradient(100deg, transparent 0 8px, #2D6FB355 8px 10px);
+    opacity: 0; transition: opacity .3s;
+  }
+  .bed.pumping .column .rain { opacity: 1; animation: rain 0.8s linear infinite; }
+  @keyframes rain { from { background-position: 0 0; } to { background-position: 0 20px; } }
+  .bed h3 { font-size: 20px; display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .big { font: 700 34px/1.1 "Bricolage Grotesque", sans-serif; margin: 6px 0 4px; }
+  .facts { color: var(--muted); font-size: 14px; line-height: 1.45; }
+  .state { margin-top: 8px; font-size: 14px; font-weight: 600; }
+  .state.pump { color: var(--water); }
+  .state.warn { color: var(--warn); }
+
+  /* Painéis */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-top: 18px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .panel h2 { font-size: 24px; font-weight: 700; }
+  .panel .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { font: 500 14px inherit; font-family: inherit; border: 0; background: transparent; padding: 7px 12px; cursor: pointer; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .key-line { width: 22px; height: 0; border-top: 2px solid; }
+  .key-box { width: 14px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; height: 340px; }
+
+  .grid2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .grid2 .panel { margin-top: 18px; }
+  .equation {
+    font: 500 18px/1.6 "Instrument Sans", sans-serif; background: #F2F5EF; border-radius: 10px;
+    padding: 14px 16px; margin: 12px 0; overflow-x: auto; white-space: nowrap;
+  }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px; }
+  .stats div { border-top: 1px solid var(--line); padding-top: 8px; }
+  .stats b { display: block; font: 700 22px "Bricolage Grotesque", sans-serif; }
+  .stats small { color: var(--muted); font-size: 13px; }
+  .note { color: var(--muted); font-size: 14px; margin: 10px 0 0; max-width: 62ch; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid #EEF1EB; }
+  .ok { color: #2F7A33; font-weight: 600; }
+  .out { color: var(--warn); font-weight: 600; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .tag.previsao { background: var(--water-soft); color: var(--water); }
+  .tag.limite { background: #F6E7CF; color: var(--warn); }
+
+  .water-row { display: grid; grid-template-columns: 110px 1fr 90px; gap: 12px; align-items: center; margin: 10px 0; }
+  .water-bar { height: 14px; background: #EEF1EB; border-radius: 4px; overflow: hidden; }
+  .water-bar i { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+  .water-total { font: 700 30px "Bricolage Grotesque", sans-serif; margin-top: 4px; }
+
+  .alert { background: #FFF6E5; border: 1px solid #E8C27A; border-left: 5px solid var(--warn); color: #5A3A00;
+    padding: 10px 14px; border-radius: 10px; margin: 0 0 10px; font-size: 15px; }
+  .alert.stale { background: #EEF1F6; border-color: #B9C3D3; border-left-color: #5B6A85; color: #27324A; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 14px; }
+  .error { background: #FFF4E5; border: 1px solid #F0C98A; padding: 12px 16px; border-radius: 10px; margin-top: 16px; display: none; }
+
+  @media (max-width: 900px) {
+    .beds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .beds { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .water-row { grid-template-columns: 90px 1fr 70px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .column .fill { transition: none; }
+    .bed.pumping .column .rain { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div class="brand">Irrigação inteligente</div>
+    <div class="live" role="status"><span class="dot" id="dot"></span><span id="live">Conectando ao banco de dados…</span></div>
+  </header>
+
+  <section class="hero">
+    <h1 id="headline">Carregando as previsões das plantações…</h1>
+    <p>Cada plantação tem sensores próprios de temperatura e luz. Um modelo de regressão aprende a
+      velocidade com que o solo seca e prevê quando a umidade vai sair da faixa ideal, para a bomba
+      regar antes.</p>
+  </section>
+
+  <div class="error" id="error" role="alert"></div>
+  <div id="alerts"></div>
+
+  <section class="beds" id="beds" aria-label="Plantações"></section>
+
+  <section class="panel" aria-labelledby="chart-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="chart-title">Umidade do solo</h2>
+        <div class="sub" id="chart-sub">Real contra prevista pelo modelo</div>
+      </div>
+      <div class="seg" role="group" aria-label="Período do gráfico">
+        <button data-min="15" aria-pressed="true">15 min</button>
+        <button data-min="30" aria-pressed="false">30 min</button>
+        <button data-min="60" aria-pressed="false">1 hora</button>
+      </div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="chart-wrap"><canvas id="chart" aria-label="Gráfico de umidade do solo real e prevista"></canvas></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="model-title">
+      <h2 id="model-title">Como a previsão é feita</h2>
+      <div class="sub">Regressão linear múltipla, ajustada com o histórico da plantação selecionada</div>
+      <div class="equation" id="equation">—</div>
+      <div class="stats">
+        <div><b id="m-r2">—</b><small>R² do ajuste</small></div>
+        <div><b id="m-n">—</b><small>Intervalos usados</small></div>
+        <div><b id="m-dry">—</b><small>Até o mínimo</small></div>
+      </div>
+      <p class="note" id="m-note" style="font-weight:600;color:var(--ink)"></p>
+      <p class="note">A taxa de secagem é calculada entre leituras seguidas sem a bomba ligada. Mude a temperatura
+        ou a luz de um sensor no Wokwi e o modelo reajusta os coeficientes nas próximas leituras.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="cond-title">
+      <h2 id="cond-title">Condições agora</h2>
+      <div class="sub" id="cond-sub">Comparadas com a faixa ideal da plantação</div>
+      <table style="margin-top:12px">
+        <thead><tr><th>Medida</th><th>Atual</th><th>Faixa ideal</th><th>Situação</th></tr></thead>
+        <tbody id="cond"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="water-title">
+      <h2 id="water-title">Água gasta</h2>
+      <div class="sub">Total desde o início do monitoramento</div>
+      <div class="water-total" id="water-total">—</div>
+      <div id="water"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="pump-title">
+      <h2 id="pump-title">Acionamentos da bomba</h2>
+      <div class="sub" id="pump-sub">Na última hora</div>
+      <div style="max-height:320px; overflow:auto; margin-top:10px">
+        <table>
+          <thead><tr><th>Início</th><th>Plantação</th><th>Motivo</th><th>Duração</th><th>Água</th></tr></thead>
+          <tbody id="pumps"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <footer id="footer">Dados atualizados a cada 5 segundos.</footer>
+</main>
+
+<script src="config.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Configuração e estado
+// ---------------------------------------------------------------------------
+const cfg = window.IRRIG_CONFIG;
+const ESTADO = { plants: [], data: {}, models: {}, totals: {}, selected: null, minutes: 15, chart: null, lastAt: null };
+const $ = (id) => document.getElementById(id);
+const hora = (t) => new Date(t).toLocaleTimeString("pt-BR");
+const fmt = (n, d = 1) => Number(n).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+function duracao(s) {
+  if (s == null || !isFinite(s)) return "—";
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return s + " s";
+  const m = Math.floor(s / 60), r = s % 60;
+  if (m < 60) return r ? `${m} min ${r} s` : `${m} min`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
+}
+
+// Consulta a API REST do projeto (função "leituras" no Supabase).
+async function api(params) {
+  const res = await fetch(cfg.apiUrl + "?" + new URLSearchParams(params), { cache: "no-store" });
+  if (!res.ok) throw new Error("a API respondeu " + res.status);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Modelo: regressão linear múltipla da taxa de secagem
+//   taxa (%/min) = b0 + b1·temperatura + b2·(luz/1000)
+// Ajuste por mínimos quadrados (equações normais) com uma pequena
+// regularização para não quebrar quando temperatura e luz ficam constantes.
+// ---------------------------------------------------------------------------
+function ajustarModelo(rows) {
+  // Amostras: pares de leituras seguidas, sem bomba, com intervalo plausível.
+  const X = [], y = [];
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1], b = rows[i];
+    const dt = (b.t - a.t) / 1000;
+    if (a.pump_on || b.pump_on || dt < 1 || dt > 30) continue;
+    X.push([a.temperature, a.light_lux / 1000]);
+    y.push((b.soil_moisture - a.soil_moisture) / dt * 60);
+  }
+  const n = y.length;
+  if (n < 6) return { n, b: [n ? y.reduce((s, v) => s + v, 0) / n : -1.5, 0, 0], r2: null };
+
+  // Centraliza as variáveis para estabilizar o ajuste.
+  const mT = X.reduce((s, v) => s + v[0], 0) / n, mL = X.reduce((s, v) => s + v[1], 0) / n;
+  const my = y.reduce((s, v) => s + v, 0) / n;
+  const lambda = 0.05 * n;  // regularização leve (ridge)
+  let sTT = lambda, sLL = lambda, sTL = 0, sTy = 0, sLy = 0;
+  for (let i = 0; i < n; i++) {
+    const t = X[i][0] - mT, l = X[i][1] - mL, v = y[i] - my;
+    sTT += t * t; sLL += l * l; sTL += t * l; sTy += t * v; sLy += l * v;
+  }
+  const det = sTT * sLL - sTL * sTL;
+  const b1 = (sTy * sLL - sLy * sTL) / det;
+  const b2 = (sLy * sTT - sTy * sTL) / det;
+  const b0 = my - b1 * mT - b2 * mL;
+
+  // R² do ajuste
+  let ssr = 0, sst = 0;
+  for (let i = 0; i < n; i++) {
+    const p = b0 + b1 * X[i][0] + b2 * X[i][1];
+    ssr += (y[i] - p) ** 2; sst += (y[i] - my) ** 2;
+  }
+  return { n, b: [b0, b1, b2], r2: sst > 1e-9 ? Math.max(0, 1 - ssr / sst) : null };
+}
+
+const taxa = (m, temp, lux) => m.b[0] + m.b[1] * temp + m.b[2] * lux / 1000;
+
+function preverSecagem(plant, rows, m) {
+  // Projeta a curva para frente com as condições atuais até tocar o mínimo.
+  const last = rows[rows.length - 1];
+  if (!last) return { pontos: [], segundos: null };
+  if (last.pump_on) return { pontos: [], segundos: null, bomba: true };
+  const r = taxa(m, last.temperature, last.light_lux);
+  const pontos = [{ x: last.t, y: last.soil_moisture }];
+  if (r >= -0.01) return { pontos, segundos: null };
+  let u = last.soil_moisture, s = 0;
+  while (u > plant.umidade_min && s < 3600) { s += 5; u += r * 5 / 60; }
+  const seg = Math.max(0, (last.soil_moisture - plant.umidade_min) / -r * 60);
+  pontos.push({ x: last.t + seg * 1000, y: plant.umidade_min });
+  return { pontos, segundos: seg };
+}
+
+function curvaPrevista(rows, m) {
+  // Previsão um passo à frente para cada leitura do histórico (real x previsto).
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1], b = rows[i];
+    const dt = (b.t - a.t) / 1000;
+    if (a.pump_on || b.pump_on || dt > 30) { out.push({ x: b.t, y: null }); continue; }
+    out.push({ x: b.t, y: a.soil_moisture + taxa(m, a.temperature, a.light_lux) * dt / 60 });
+  }
+  return out;
+}
+
+function episodiosBomba(plant, rows) {
+  // Agrupa leituras seguidas com bomba ligada em um acionamento.
+  const eps = [];
+  let cur = null;
+  for (const r of rows) {
+    if (r.pump_on) {
+      if (!cur) { cur = { plant, inicio: r.t, fim: r.t, agua: 0, motivo: r.pump_reason }; eps.push(cur); }
+      cur.fim = r.t; cur.agua += r.water_ml || 0; cur.motivo = cur.motivo || r.pump_reason;
+    } else cur = null;
+  }
+  return eps;
+}
+
+// ---------------------------------------------------------------------------
+// Carregamento dos dados
+// ---------------------------------------------------------------------------
+async function carregar() {
+  try {
+    const r = await api({ minutos: 60 });
+    ESTADO.plants = r.plantas;
+    if (!ESTADO.selected) ESTADO.selected = r.plantas[0].id;
+    ESTADO.lastAt = null;
+    for (const p of r.plantas) {
+      const rows = p.historico.map((x) => ({ ...x, t: Date.parse(x.received_at) }));
+      ESTADO.data[p.id] = rows;
+      ESTADO.models[p.id] = ajustarModelo(rows);
+      ESTADO.totals[p.id] = { agua_total_ml: p.agua_total_ml };
+      p.ultimaT = p.ultima ? Date.parse(p.ultima.received_at) : null;
+      if (p.ultimaT && (!ESTADO.lastAt || p.ultimaT > ESTADO.lastAt)) ESTADO.lastAt = p.ultimaT;
+      if (p.ultima) ESTADO.device = p.ultima.device_id;
+    }
+    $("error").style.display = "none";
+    desenhar();
+  } catch (e) {
+    $("error").textContent = "Não foi possível consultar a API (" + e.message + "). O painel tenta de novo a cada 5 segundos.";
+    $("error").style.display = "block";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Desenho da página
+// ---------------------------------------------------------------------------
+function situacao(v, min, max) {
+  if (v < min) return ["abaixo", "out"];
+  if (v > max) return ["acima", "out"];
+  return ["na faixa", "ok"];
+}
+
+function desenhar() {
+  const agora = Date.now();
+  const idade = ESTADO.lastAt ? (agora - ESTADO.lastAt) / 1000 : null;
+  const online = idade != null && idade < 30;
+  $("dot").classList.toggle("on", online);
+  $("live").textContent = idade == null ? "Nenhuma leitura recebida ainda"
+    : `${ESTADO.device ? "ESP32 " + ESTADO.device + ", " : ""}última atualização às ${hora(ESTADO.lastAt)} (há ${duracao(idade)})`;
+  // Avisos: dados desatualizados e plantações em alerta
+  const avisos = [];
+  if (idade != null && !online) avisos.push(`<b>Dados desatualizados.</b> Nenhuma leitura nova desde ${hora(ESTADO.lastAt)}. O painel volta a atualizar sozinho quando a transmissão for retomada.`);
+  for (const p of ESTADO.plants) {
+    const u = p.ultima; if (!u) continue;
+    const fora = [];
+    if (u.soil_moisture < p.umidade_min) fora.push(`umidade do solo ${fmt(u.soil_moisture)}% (mín. ${p.umidade_min}%)`);
+    if (u.temperature < p.temp_min || u.temperature > p.temp_max) fora.push(`temperatura ${fmt(u.temperature)} °C (ideal ${p.temp_min}–${p.temp_max} °C)`);
+    if (u.light_lux < p.luz_min || u.light_lux > p.luz_max) fora.push(`luz ${Math.round(u.light_lux).toLocaleString("pt-BR")} lux (ideal ${p.luz_min.toLocaleString("pt-BR")}–${p.luz_max.toLocaleString("pt-BR")})`);
+    if (fora.length) avisos.push(`<b>Alerta em ${p.nome}:</b> ${fora.join("; ")}.`);
+  }
+  $("alerts").innerHTML = avisos.map((t) => `<div class="alert${t.startsWith("<b>Dados") ? " stale" : ""}" role="alert">${t}</div>`).join("");
+
+  // Canteiros e previsão mais urgente
+  let urgente = null, bombando = [];
+  const beds = $("beds");
+  beds.innerHTML = "";
+  for (const p of ESTADO.plants) {
+    const rows = ESTADO.data[p.id] || [];
+    const last = rows[rows.length - 1] || (p.ultima ? { ...p.ultima, t: p.ultimaT } : undefined);
+    const prev = preverSecagem(p, rows, ESTADO.models[p.id]);
+    p._prev = prev;
+    if (last && last.pump_on) bombando.push(p.nome);
+    else if (prev.segundos != null && (!urgente || prev.segundos < urgente.s)) urgente = { p, s: prev.segundos };
+
+    const u = last ? last.soil_moisture : 0;
+    let estado = "Sem leituras", cls = "";
+    if (last) {
+      if (last.pump_on) { estado = "Bomba ligada (" + (last.pump_reason === "previsao" ? "pela previsão" : "pelo limite") + ")"; cls = "pump"; }
+      else if (u < p.umidade_min) { estado = "Abaixo da faixa ideal"; cls = "warn"; }
+      else if (prev.segundos != null) estado = "Precisa de água em " + duracao(prev.segundos);
+      else estado = "Umidade estável";
+    }
+    const b = document.createElement("button");
+    b.className = "bed" + (last && last.pump_on ? " pumping" : "");
+    b.setAttribute("aria-pressed", String(p.id === ESTADO.selected));
+    b.innerHTML = `
+      <div class="column" aria-hidden="true">
+        <div class="band" style="bottom:${p.umidade_min}%;height:${p.umidade_max - p.umidade_min}%"></div>
+        <div class="fill ${u < p.umidade_min ? "dry" : ""}" style="height:${u}%"></div>
+        <div class="rain"></div>
+      </div>
+      <div>
+        <h3><span class="swatch" style="background:${p.cor}"></span>${p.nome}</h3>
+        <div class="big">${last ? fmt(u) + "%" : "—"}</div>
+        <div class="facts">${last ? `${fmt(last.temperature)} °C<br>${Math.round(last.light_lux).toLocaleString("pt-BR")} lux` : ""}<br>Ideal ${p.umidade_min}–${p.umidade_max}% de umidade${p.ultima ? `<br>Leitura das ${hora(p.ultimaT)}` : ""}</div>
+        <div class="state ${cls}">${estado}</div>
+      </div>`;
+    b.onclick = () => { ESTADO.selected = p.id; desenhar(); };
+    beds.appendChild(b);
+  }
+  $("headline").textContent = bombando.length
+    ? (bombando.length > 1 ? `As bombas ${bombando.map(doDa).join(" e ")} estão regando agora.` : `A bomba ${doDa(bombando[0])} está regando agora.`)
+    : urgente
+      ? `${artigo(urgente.p.nome)} ${urgente.p.nome.toLowerCase()} vai precisar de água em ${duracao(urgente.s)}.`
+      : (ESTADO.lastAt ? "Todas as plantações estão com a umidade estável." : "Aguardando as primeiras leituras do ESP32.");
+
+  desenharGrafico();
+  desenharModelo();
+  desenharAgua();
+  desenharBombas();
+}
+
+const FEM = ["alface"];
+const artigo = (nome) => (FEM.includes(nome.toLowerCase()) ? "A" : "O");
+const doDa = (nome) => (FEM.includes(nome.toLowerCase()) ? "da " : "do ") + nome.toLowerCase();
+
+function desenharGrafico() {
+  const p = ESTADO.plants.find((x) => x.id === ESTADO.selected);
+  if (!p) return;
+  const rows = ESTADO.data[p.id] || [];
+  const m = ESTADO.models[p.id];
+  const ini = Date.now() - ESTADO.minutes * 60 * 1000;
+  const vis = rows.filter((r) => r.t >= ini);
+  const real = vis.map((r) => ({ x: r.t, y: r.soil_moisture }));
+  const prevista = curvaPrevista(rows, m).filter((q) => q.x >= ini);
+  const futuro = p._prev ? p._prev.pontos : [];
+  const fimX = Math.max(Date.now(), futuro.length ? futuro[futuro.length - 1].x : 0);
+
+  $("chart-title").textContent = "Umidade do solo: " + p.nome;
+  $("chart-sub").textContent = `Faixa ideal de ${p.umidade_min}% a ${p.umidade_max}%. A linha tracejada mostra o que o modelo esperava a cada leitura.`;
+  $("legend").innerHTML = `
+    <span><i class="key-line" style="border-color:${p.cor}"></i>Real (sensor)</span>
+    <span><i class="key-line" style="border-top:2px dashed var(--ink)"></i>Prevista pelo modelo</span>
+    <span><i class="key-line" style="border-top:2px dotted var(--ink)"></i>Projeção até o mínimo</span>
+    <span><i class="key-box" style="background:var(--ideal);outline:1px dashed var(--ideal-edge)"></i>Faixa ideal</span>
+    <span><i class="key-box" style="background:var(--water-soft)"></i>Bomba ligada</span>`;
+
+  const bombas = episodiosBomba(p, vis).map((e) => [e.inicio - 2500, e.fim + 2500]);
+  const datasets = [
+    { label: "Real (sensor)", data: real, borderColor: p.cor, backgroundColor: p.cor, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.25 },
+    { label: "Prevista pelo modelo", data: prevista, borderColor: "#1F2A22", borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 4, spanGaps: false },
+    { label: "Projeção até o mínimo", data: futuro, borderColor: "#1F2A22", borderDash: [2, 4], borderWidth: 2, pointRadius: futuro.length > 1 ? [0, 5] : 0, pointBackgroundColor: "#1F2A22" },
+  ];
+  const faixa = {
+    id: "faixa",
+    beforeDatasetsDraw(c) {
+      const { ctx, chartArea: a, scales: { x, y } } = c;
+      ctx.save();
+      // Faixa ideal
+      ctx.fillStyle = "#DCEBCF99";
+      const y1 = y.getPixelForValue(p.umidade_max), y2 = y.getPixelForValue(p.umidade_min);
+      ctx.fillRect(a.left, y1, a.right - a.left, y2 - y1);
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = "#6E9A4E"; ctx.lineWidth = 1;
+      [y1, y2].forEach((yy) => { ctx.beginPath(); ctx.moveTo(a.left, yy); ctx.lineTo(a.right, yy); ctx.stroke(); });
+      // Períodos com bomba ligada
+      ctx.setLineDash([]); ctx.fillStyle = "#2D6FB322";
+      for (const [s, e] of bombas) {
+        const xs = Math.max(a.left, x.getPixelForValue(s)), xe = Math.min(a.right, x.getPixelForValue(e));
+        if (xe > xs) ctx.fillRect(xs, a.top, xe - xs, a.bottom - a.top);
+      }
+      ctx.restore();
+    },
+  };
+  const opts = {
+    responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+    interaction: { mode: "nearest", axis: "x", intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (it) => hora(it[0].parsed.x),
+          label: (it) => it.parsed.y == null ? null : ` ${it.dataset.label}: ${fmt(it.parsed.y)}%`,
+        },
+      },
+    },
+    scales: {
+      x: { type: "linear", min: ini, max: fimX + 20000, grid: { color: "#EEF1EB" },
+           ticks: { color: "#5B6A5F", maxTicksLimit: 7, callback: (v) => new Date(v).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) } },
+      y: { min: Math.max(0, p.umidade_min - 15), max: Math.min(100, p.umidade_max + 10), grid: { color: "#EEF1EB" },
+           ticks: { color: "#5B6A5F", callback: (v) => v + "%" }, title: { display: true, text: "Umidade do solo", color: "#5B6A5F" } },
+    },
+  };
+  if (ESTADO.chart) ESTADO.chart.destroy();
+  ESTADO.chart = new Chart($("chart"), { type: "line", data: { datasets }, options: opts, plugins: [faixa] });
+}
+
+function desenharModelo() {
+  const p = ESTADO.plants.find((x) => x.id === ESTADO.selected);
+  const m = ESTADO.models[p.id];
+  const rows = ESTADO.data[p.id] || [], last = rows[rows.length - 1];
+  const s = (v) => (v < 0 ? " − " : " + ") + fmt(Math.abs(v), 3);
+  $("equation").innerHTML = `taxa de secagem (%/min) = ${fmt(m.b[0], 3)}${s(m.b[1])} · temperatura${s(m.b[2])} · luz (mil lux)`;
+  $("m-r2").textContent = m.r2 == null ? "—" : fmt(m.r2, 2);
+  $("m-note").textContent = m.n < 6
+    ? "Coletando leituras: o modelo precisa de pelo menos 6 intervalos sem bomba."
+    : (Math.abs(m.b[1]) < 1e-4 && Math.abs(m.b[2]) < 1e-4
+      ? "Temperatura e luz estão constantes, então o modelo usa a taxa média. Mude o DHT22 ou o sensor de luz no Wokwi para ver os coeficientes mudarem."
+      : "Coeficientes ajustados com as variações de temperatura e luz registradas.");
+  $("m-n").textContent = m.n;
+  $("m-dry").textContent = last && last.pump_on ? "regando" : duracao(p._prev && p._prev.segundos);
+
+  $("cond-sub").textContent = p.nome + ", comparada com a faixa ideal";
+  if (!last) { $("cond").innerHTML = `<tr><td colspan="4">Sem leituras na última hora.</td></tr>`; return; }
+  const linhas = [
+    ["Umidade do solo", fmt(last.soil_moisture) + "%", `${p.umidade_min}–${p.umidade_max}%`, situacao(last.soil_moisture, p.umidade_min, p.umidade_max)],
+    ["Temperatura", fmt(last.temperature) + " °C", `${p.temp_min}–${p.temp_max} °C`, situacao(last.temperature, p.temp_min, p.temp_max)],
+    ["Luminosidade", Math.round(last.light_lux).toLocaleString("pt-BR") + " lux",
+      `${p.luz_min.toLocaleString("pt-BR")}–${p.luz_max.toLocaleString("pt-BR")} lux`, situacao(last.light_lux, p.luz_min, p.luz_max)],
+  ];
+  $("cond").innerHTML = linhas.map(([a, b, c, [t, k]]) =>
+    `<tr><td>${a}</td><td>${b}</td><td>${c}</td><td class="${k}">${k === "ok" ? "✓" : "!"} ${t}</td></tr>`).join("");
+}
+
+function desenharAgua() {
+  const tot = ESTADO.plants.map((p) => ({ p, ml: Number(ESTADO.totals[p.id]?.agua_total_ml || 0) }));
+  const soma = tot.reduce((s, t) => s + t.ml, 0);
+  const max = Math.max(1, ...tot.map((t) => t.ml));
+  $("water-total").textContent = fmt(soma / 1000, 2) + " litros";
+  $("water").innerHTML = tot.map(({ p, ml }) => `
+    <div class="water-row">
+      <span>${p.nome}</span>
+      <div class="water-bar" title="${fmt(ml / 1000, 2)} L"><i style="width:${(ml / max) * 100}%;background:${p.cor}"></i></div>
+      <span style="text-align:right">${fmt(ml / 1000, 2)} L</span>
+    </div>`).join("");
+}
+
+function desenharBombas() {
+  const eps = ESTADO.plants.flatMap((p) => episodiosBomba(p, ESTADO.data[p.id] || [])).sort((a, b) => b.inicio - a.inicio);
+  const prev = eps.filter((e) => e.motivo === "previsao").length;
+  $("pump-sub").textContent = eps.length
+    ? `${eps.length} na última hora, ${prev} disparados pela previsão antes de o solo secar`
+    : "Nenhum na última hora";
+  $("pumps").innerHTML = eps.slice(0, 40).map((e) => `
+    <tr>
+      <td>${hora(e.inicio)}</td>
+      <td><span class="swatch" style="background:${e.plant.cor}"></span> ${e.plant.nome}</td>
+      <td><span class="tag ${e.motivo || "limite"}">${e.motivo === "previsao" ? "Previsão" : "Limite mínimo"}</span></td>
+      <td>~${duracao((e.fim - e.inicio) / 1000 + 5)}</td>
+      <td>${fmt(e.agua / 1000, 2)} L</td>
+    </tr>`).join("") || `<tr><td colspan="5">A bomba ainda não foi acionada na última hora.</td></tr>`;
+}
+
+// Botões de período
+document.querySelectorAll(".seg button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  ESTADO.minutes = Number(b.dataset.min);
+  desenharGrafico();
+});
+
+$("footer").innerHTML = `O painel consulta a API a cada 5 segundos: <a href="${cfg.apiUrl}" target="_blank" rel="noopener">ver resposta da API</a>.` +
+  (cfg.wokwiUrl ? ` Simulação do ESP32: <a href="${cfg.wokwiUrl}" target="_blank" rel="noopener">projeto no Wokwi</a>.` : "");
+carregar();
+setInterval(carregar, 5000);
+</script>
+</body>
+</html>
