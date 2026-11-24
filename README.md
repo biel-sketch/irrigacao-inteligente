@@ -121,6 +121,8 @@ GET /functions/v1/leituras?minutos=15      janela do histórico (1 a 1440)
 
 ## Contribuições
 
+Os commits deste repositório foram feitos por Gabriel Tomazela em nome do grupo; a divisão do trabalho foi:
+
 | Integrante | Parte |
 |---|---|
 | Matheus Correa | firmware do ESP32 e circuito no Wokwi (`wokwi/`) |
