@@ -1,0 +1,406 @@
+{
+  "version": 1,
+  "author": "Irrigacao Inteligente",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 120,
+      "left": -40,
+      "attrs": {
+        "env": "micropython-20260406-v1.28.0"
+      }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht_alface",
+      "top": -90,
+      "left": 180,
+      "attrs": {
+        "temperature": "20",
+        "humidity": "55"
+      }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr_alface",
+      "top": 90,
+      "left": 170,
+      "rotate": 90,
+      "attrs": {
+        "lux": "15000"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "bomba_alface",
+      "top": 300,
+      "left": 200,
+      "attrs": {
+        "color": "blue",
+        "label": "Bomba Alface"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_alface",
+      "top": 380,
+      "left": 180,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht_tomate",
+      "top": -90,
+      "left": 370,
+      "attrs": {
+        "temperature": "27",
+        "humidity": "55"
+      }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr_tomate",
+      "top": 90,
+      "left": 360,
+      "rotate": 90,
+      "attrs": {
+        "lux": "50000"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "bomba_tomate",
+      "top": 300,
+      "left": 390,
+      "attrs": {
+        "color": "blue",
+        "label": "Bomba Tomate"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_tomate",
+      "top": 380,
+      "left": 370,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht_morango",
+      "top": -90,
+      "left": 560,
+      "attrs": {
+        "temperature": "21",
+        "humidity": "55"
+      }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr_morango",
+      "top": 90,
+      "left": 550,
+      "rotate": 90,
+      "attrs": {
+        "lux": "35000"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "bomba_morango",
+      "top": 300,
+      "left": 580,
+      "attrs": {
+        "color": "blue",
+        "label": "Bomba Morango"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_morango",
+      "top": 380,
+      "left": 560,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht_manjericao",
+      "top": -90,
+      "left": 750,
+      "attrs": {
+        "temperature": "25",
+        "humidity": "55"
+      }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr_manjericao",
+      "top": 90,
+      "left": 740,
+      "rotate": 90,
+      "attrs": {
+        "lux": "40000"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "bomba_manjericao",
+      "top": 300,
+      "left": 770,
+      "attrs": {
+        "color": "blue",
+        "label": "Bomba Manjericão"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_manjericao",
+      "top": 380,
+      "left": 750,
+      "attrs": {
+        "value": "220"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:TX",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "dht_alface:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "dht_alface:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "dht_alface:SDA",
+      "esp:13",
+      "green",
+      []
+    ],
+    [
+      "ldr_alface:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "ldr_alface:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "ldr_alface:AO",
+      "esp:32",
+      "orange",
+      []
+    ],
+    [
+      "esp:18",
+      "bomba_alface:A",
+      "blue",
+      []
+    ],
+    [
+      "bomba_alface:C",
+      "r_alface:1",
+      "black",
+      []
+    ],
+    [
+      "r_alface:2",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "dht_tomate:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "dht_tomate:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "dht_tomate:SDA",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "ldr_tomate:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "ldr_tomate:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "ldr_tomate:AO",
+      "esp:33",
+      "orange",
+      []
+    ],
+    [
+      "esp:19",
+      "bomba_tomate:A",
+      "blue",
+      []
+    ],
+    [
+      "bomba_tomate:C",
+      "r_tomate:1",
+      "black",
+      []
+    ],
+    [
+      "r_tomate:2",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "dht_morango:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "dht_morango:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "dht_morango:SDA",
+      "esp:27",
+      "green",
+      []
+    ],
+    [
+      "ldr_morango:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "ldr_morango:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "ldr_morango:AO",
+      "esp:34",
+      "orange",
+      []
+    ],
+    [
+      "esp:21",
+      "bomba_morango:A",
+      "blue",
+      []
+    ],
+    [
+      "bomba_morango:C",
+      "r_morango:1",
+      "black",
+      []
+    ],
+    [
+      "r_morango:2",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "dht_manjericao:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "dht_manjericao:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "dht_manjericao:SDA",
+      "esp:26",
+      "green",
+      []
+    ],
+    [
+      "ldr_manjericao:VCC",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "ldr_manjericao:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "ldr_manjericao:AO",
+      "esp:35",
+      "orange",
+      []
+    ],
+    [
+      "esp:22",
+      "bomba_manjericao:A",
+      "blue",
+      []
+    ],
+    [
+      "bomba_manjericao:C",
+      "r_manjericao:1",
+      "black",
+      []
+    ],
+    [
+      "r_manjericao:2",
+      "esp:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "serialMonitor": {
+    "display": "always",
+    "newline": "lf"
+  }
+}
