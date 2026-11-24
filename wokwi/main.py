@@ -55,6 +55,12 @@ GANHO_POR_ML = 0.1    # cada ml de água sobe 0,1 ponto de umidade
 
 BOOT_ID = binascii.hexlify(os.urandom(4)).decode()
 CLIENT_ID = (DEVICE_ID + "-" + BOOT_ID).encode()
+# Prepara o TLS uma vez só, no início, enquanto a memória está livre.
+gc.collect()
+CTX = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+CTX.verify_mode = ssl.CERT_REQUIRED
+CTX.load_verify_locations(cadata=ca_der())
+gc.collect()
 lock = _thread.allocate_lock()
 contador = 0
 pausa = False                              # True = transmissão interrompida
@@ -192,12 +198,9 @@ def conectar(wifi):
     print("IP", wifi.ifconfig()[0])
     ntptime.timeout = 3
     ntptime.settime()                      # TLS exige relógio correto
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ctx.verify_mode = ssl.CERT_REQUIRED
-    ctx.load_verify_locations(cadata=ca_der())
     cliente = MQTTClient(client_id=CLIENT_ID, server=MQTT_HOST, port=MQTT_PORT,
                          user=MQTT_USER.encode(), password=MQTT_PASSWORD.encode(),
-                         keepalive=60, ssl=ctx)
+                         keepalive=60, ssl=CTX)  # contexto TLS criado no início
     cliente.connect(timeout=5)
     print("MQTT CONECTADO")
     return cliente
