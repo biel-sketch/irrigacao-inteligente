@@ -27,6 +27,7 @@ import random
 import _thread
 import sys
 import select
+import gc
 from mqtt_client import MQTTClient
 from ca_cert import ca_der
 from config import (MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASSWORD,
@@ -166,7 +167,7 @@ def montar_pacotes():
                 "pump_on": p["bomba_no_intervalo"] or p["ligada"],
                 "pump_reason": p["motivo_intervalo"] or (p["motivo"] if p["ligada"] else None),
                 "water_ml": round(p["agua_ml"], 1),
-                "predicted_dry_s": None if p["prev_s"] is None else round(p["prev_s"], 1),
+                "predicted_dry_s": None if p["prev_s"] is None else round(min(p["prev_s"], 3600), 1),
             })
             p["agua_ml"] = 0.0
             p["bomba_no_intervalo"] = False
@@ -178,6 +179,7 @@ def montar_pacotes():
 # Rede: Wi-Fi, relógio, MQTT com TLS e envio periódico (segundo núcleo)
 # ---------------------------------------------------------------------------
 def conectar(wifi):
+    gc.collect()                           # libera memória para o TLS
     if not wifi.isconnected():
         wifi.active(True)
         wifi.connect("Wokwi-GUEST", "")
