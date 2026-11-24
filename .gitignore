@@ -1,0 +1,6 @@
+# Nunca versionar segredos
+.env
+*.secret
+config.local.py
+__pycache__/
+.DS_Store
